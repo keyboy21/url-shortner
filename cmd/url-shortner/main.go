@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"log"
 
@@ -25,15 +24,8 @@ func main() {
 	log := setupLogger(cfg)
 	log.Infow("starting url-shortner", "config", cfg)
 
-	db, err := newDB(cfg.StoragePath)
-	if err != nil {
-		log.Fatalf("Can not connect to db: %s", err)
-	}
-	defer db.Close()
-
-	store := sqlite.New(db)
-	_ = store
-
+	store := sqlite.ConnectSqlite(cfg.StoragePath)
+	defer store.Close()
 }
 
 func setupLogger(c *config.Config) *zap.SugaredLogger {
@@ -60,17 +52,4 @@ func setupLogger(c *config.Config) *zap.SugaredLogger {
 	}
 
 	return logger.Sugar()
-}
-
-func newDB(databaseUrl string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", databaseUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := db.Ping(); err != nil {
-		return nil, err
-	}
-
-	return db, nil
 }
