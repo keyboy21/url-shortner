@@ -6,7 +6,8 @@ type UrlRepository interface {
 	FindById(int) (*model.Url, error)
 	FindByUrl(string) (*model.Url, error)
 	FindByAlias(string) (*model.Url, error)
-	SaveUrl(u *model.Url) (*model.Url,error)
+	SaveUrl(u *model.Url) (*model.Url, error)
+	DeleteUrl(url string) (*model.Url, error)
 }
 
 type Store interface {

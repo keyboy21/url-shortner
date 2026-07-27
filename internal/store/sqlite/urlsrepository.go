@@ -65,3 +65,17 @@ func (r UrlRepository) FindByAlias(alias string) (*model.Url, error) {
 
 	return u, nil
 }
+
+func (r UrlRepository) DeleteUrl(url string) (*model.Url, error) {
+	u := &model.Url{}
+
+	if err := r.db.Get(u, "DELETE FROM urls WHERE url = $1 RETURNING id, url, alias, created_at", url); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, store.ErrUrlNotFound
+		}
+
+		return nil, err
+	}
+
+	return u, nil
+}

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,4 +83,29 @@ func TestUrl_FindByAlias(t *testing.T) {
 	assert.Equal(t, created.Url, found.Url)
 	assert.Equal(t, created.Alias, found.Alias)
 	assert.Equal(t, created.CreatedAt, found.CreatedAt)
+}
+
+func TestUrl_DeleteUrl(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
+	db := sqlite.SetupTestDB(t, dbPath)
+	s := sqlite.New(db)
+
+	created, err := s.Url().SaveUrl(sqlite.CreateTestURL(t))
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	deleted, err := s.Url().DeleteUrl(created.Url)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, deleted)
+
+	assert.Equal(t, created.Id, deleted.Id)
+	assert.Equal(t, created.Url, deleted.Url)
+	assert.Equal(t, created.Alias, deleted.Alias)
+	assert.Equal(t, created.CreatedAt, deleted.CreatedAt)
+
+	found, err := s.Url().FindById(deleted.Id)
+
+	assert.Nil(t, found)
+	require.ErrorIs(t, err, store.ErrUrlNotFound)
 }
