@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/keyboy21/url-shortner/internal/storage/sqlite"
+	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

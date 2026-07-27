@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/keyboy21/url-shortner/internal/storage"
+	"github.com/keyboy21/url-shortner/internal/store"
 	_ "modernc.org/sqlite"
 )
 
@@ -36,7 +36,7 @@ func New(db *sqlx.DB) *Store {
 	}
 }
 
-func (s *Store) Url() storage.UrlRepository {
+func (s *Store) Url() store.UrlRepository {
 	return s.urlRepository
 }
 

@@ -1,4 +1,4 @@
-package storage
+package store
 
 import "github.com/keyboy21/url-shortner/internal/model"
 

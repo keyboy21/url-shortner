@@ -6,7 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keyboy21/url-shortner/internal/model"
-	"github.com/keyboy21/url-shortner/internal/storage"
+	"github.com/keyboy21/url-shortner/internal/store"
 )
 
 type UrlRepository struct {
@@ -32,7 +32,7 @@ func (r UrlRepository) FindById(id int) (*model.Url, error) {
 
 	if err := r.db.Get(url, query, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, storage.ErrUrlNotFound
+			return nil, store.ErrUrlNotFound
 		}
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (r UrlRepository) FindByUrl(url string) (*model.Url, error) {
 
 	if err := r.db.Get(u, "SELECT * FROM urls WHERE url = $1", url); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, storage.ErrUrlNotFound
+			return nil, store.ErrUrlNotFound
 		}
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (r UrlRepository) FindByAlias(alias string) (*model.Url, error) {
 
 	if err := r.db.Get(u, "SELECT * FROM urls WHERE alias = $1", alias); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, storage.ErrUrlNotFound
+			return nil, store.ErrUrlNotFound
 		}
 		return nil, err
 	}

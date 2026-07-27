@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/keyboy21/url-shortner/internal/config"
-	"github.com/keyboy21/url-shortner/internal/storage/sqlite"
+	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"go.uber.org/zap"
 )
 
