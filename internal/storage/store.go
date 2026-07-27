@@ -3,10 +3,10 @@ package storage
 import "github.com/keyboy21/url-shortner/internal/model"
 
 type UrlRepository interface {
-	FindById(int) (*model.Urls, error)
-	FindByUrl(string) (*model.Urls, error)
-	FindByAlias(string) (*model.Urls, error)
-	SaveUrl(url, alias string) error
+	FindById(int) (*model.Url, error)
+	FindByUrl(string) (*model.Url, error)
+	FindByAlias(string) (*model.Url, error)
+	SaveUrl(u *model.Url) (*model.Url,error)
 }
 
 type Store interface {

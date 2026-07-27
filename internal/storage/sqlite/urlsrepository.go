@@ -2,26 +2,66 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/keyboy21/url-shortner/internal/model"
+	"github.com/keyboy21/url-shortner/internal/storage"
 )
 
 type UrlRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func (u UrlRepository) SaveUrl(url, alias string) error {
-	return nil
+func (r UrlRepository) SaveUrl(u *model.Url) (*model.Url, error) {
+	createdUrl := &model.Url{}
+	const query = `INSERT INTO urls (url, alias)
+	VALUES ($1,$2)
+	RETURNING id, url, alias, created_at`
+
+	if err := r.db.Get(createdUrl, query, u.Url, u.Alias); err != nil {
+		return nil, err
+	}
+	return createdUrl, nil
 }
 
-func (u UrlRepository) FindById(id int) (*model.Urls, error) {
-	return nil, nil
+func (r UrlRepository) FindById(id int) (*model.Url, error) {
+	url := &model.Url{}
+
+	const query = `SELECT * FROM urls WHERE id = $1`
+
+	if err := r.db.Get(url, query, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, storage.ErrUrlNotFound
+		}
+		return nil, err
+	}
+
+	return url, nil
 }
 
-func (u UrlRepository) FindByUrl(url string) (*model.Urls, error) {
-	return nil, nil
+func (r UrlRepository) FindByUrl(url string) (*model.Url, error) {
+	u := &model.Url{}
+
+	if err := r.db.Get(u, "SELECT * FROM urls WHERE url = $1", url); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, storage.ErrUrlNotFound
+		}
+		return nil, err
+	}
+
+	return u, nil
 }
 
-func (u UrlRepository) FindByAlias(alias string) (*model.Urls, error) {
-	return nil, nil
+func (r UrlRepository) FindByAlias(alias string) (*model.Url, error) {
+	u := &model.Url{}
+
+	if err := r.db.Get(u, "SELECT * FROM urls WHERE alias = $1", alias); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, storage.ErrUrlNotFound
+		}
+		return nil, err
+	}
+
+	return u, nil
 }

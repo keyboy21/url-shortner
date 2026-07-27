@@ -20,12 +20,14 @@ func init() {
 func main() {
 	flag.Parse()
 
-	cfg := config.NewConfig(configPath)
+	cfg := config.New(configPath)
 	log := setupLogger(cfg)
 	log.Infow("starting url-shortner", "config", cfg)
 
-	store := sqlite.ConnectSqlite(cfg.StoragePath)
-	defer store.Close()
+	db := sqlite.ConnectSqlite(cfg.StoragePath)
+	defer db.Close()
+	store := sqlite.New(db)
+	_ = store
 }
 
 func setupLogger(c *config.Config) *zap.SugaredLogger {

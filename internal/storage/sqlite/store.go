@@ -1,21 +1,21 @@
 package sqlite
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/keyboy21/url-shortner/internal/storage"
 	_ "modernc.org/sqlite"
 )
 
 type Store struct {
-	db            *sql.DB
+	db            *sqlx.DB
 	urlRepository *UrlRepository
 }
 
-func ConnectSqlite(dbPath string) *Store {
-	db, err := sql.Open("sqlite", dbPath)
+func ConnectSqlite(dbPath string) *sqlx.DB {
+	db, err := sqlx.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatalf("can not open sqliteDb: %s", err)
 	}
@@ -24,6 +24,10 @@ func ConnectSqlite(dbPath string) *Store {
 		log.Fatalf("can not verify connection: %s", err)
 	}
 
+	return db
+}
+
+func New(db *sqlx.DB) *Store {
 	return &Store{
 		db: db,
 		urlRepository: &UrlRepository{

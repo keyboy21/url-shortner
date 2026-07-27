@@ -27,7 +27,7 @@ func LoadConfig(configPath *string) {
 	flag.StringVar(configPath, "config", "configs/local.yml", "path to config")
 }
 
-func NewConfig(configPath string) *Config {
+func New(configPath string) *Config {
 	if configPath == "" {
 		log.Fatalf("no config path set: %s", configPath)
 	}
