@@ -1,4 +1,4 @@
-package server
+package apiserver
 
 import (
 	"net/http"
@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	appmiddleware "github.com/keyboy21/url-shortner/internal/apiserver/middleware"
 	"github.com/keyboy21/url-shortner/internal/config"
 	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/store/sqlite"
@@ -31,9 +32,9 @@ func Start(cfg *config.Config) {
 
 func newServer(store store.Store) *server {
 	s := &server{
+		logger: zap.S(),
 		router: chi.NewRouter(),
 		store:  store,
-		logger: zap.S(),
 	}
 
 	s.configureRouter()
@@ -54,10 +55,14 @@ func (s server) configureRouter() {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	s.router.Use(middleware.RequestID)
-	s.router.Use(middleware.Logger)
+	s.router.Use(appmiddleware.LoggerMiddleware(s.logger))
+	s.router.Use(middleware.Recoverer)
+	s.router.Use(middleware.URLFormat)
+	s.router.Use(middleware.Heartbeat("/ping"))
+
 }
 
-func (s server) configureLogger(c *config.Config) error {
+func (s *server) configureLogger(c *config.Config) error {
 	level, err := zap.ParseAtomicLevel(c.LogLevel)
 	if err != nil {
 		return err

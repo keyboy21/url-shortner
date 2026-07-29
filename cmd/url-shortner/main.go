@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
+	"github.com/keyboy21/url-shortner/internal/apiserver"
 	"github.com/keyboy21/url-shortner/internal/config"
-	"github.com/keyboy21/url-shortner/internal/server"
 )
 
 var (
@@ -18,5 +18,5 @@ func init() {
 func main() {
 	flag.Parse()
 	cfg := config.New(configPath)
-	server.Start(cfg)
+	apiserver.Start(cfg)
 }
