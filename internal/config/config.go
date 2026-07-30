@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -27,20 +27,20 @@ func LoadConfig(configPath *string) {
 	flag.StringVar(configPath, "config", "configs/local.yml", "path to config")
 }
 
-func New(configPath string) *Config {
+func New(configPath string) (*Config, error) {
 	if configPath == "" {
-		log.Fatalf("no config path set: %s", configPath)
+		return nil, fmt.Errorf("no config path set: %s", configPath)
 	}
 
 	if _, err := os.Stat(configPath); err != nil {
-		log.Fatalf("config file does not exist: %s", configPath)
+		return nil, fmt.Errorf("inspect config file %q: %w", configPath, err)
 	}
 
 	var cfg Config
 
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		log.Fatalf("can not read config: %s", err)
+		return nil, fmt.Errorf("can not read config: %w", err)
 	}
 
-	return &cfg
+	return &cfg, nil
 }

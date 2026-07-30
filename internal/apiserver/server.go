@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,26 +20,34 @@ type server struct {
 	logger *zap.SugaredLogger
 }
 
-func Start(cfg *config.Config) {
-	db := sqlite.ConnectSqlite(cfg.StoragePath)
+func Start(cfg *config.Config) error {
+	db, err := sqlite.ConnectSqlite(cfg.StoragePath)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	store := sqlite.New(db)
-	server := newServer(store)
-	server.configureLogger(cfg)
+	server, err := newServer(cfg, store)
+	if err != nil {
+		return err
+	}
+	defer server.logger.Sync()
 	server.logger.Infow("starting url-shortner", "config", cfg)
-	http.ListenAndServe(cfg.Address, server)
+	return http.ListenAndServe(cfg.Address, server)
 }
 
-func newServer(store store.Store) *server {
+func newServer(cfg *config.Config, store store.Store) (*server, error) {
 	s := &server{
 		logger: zap.S(),
 		router: chi.NewRouter(),
 		store:  store,
 	}
-
+	if err := s.configureLogger(cfg); err != nil {
+		return nil, fmt.Errorf("can not configure logger: %w", err)
+	}
 	s.configureRouter()
-	return s
+	return s, nil
 }
 
 func (s server) configureRouter() {
@@ -54,11 +63,12 @@ func (s server) configureRouter() {
 		AllowCredentials: false,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	s.router.Use(middleware.RequestID)
-	s.router.Use(appmiddleware.LoggerMiddleware(s.logger))
-	s.router.Use(middleware.Recoverer)
-	s.router.Use(middleware.URLFormat)
-	s.router.Use(middleware.Heartbeat("/ping"))
+	s.router.Use(
+		middleware.Recoverer,
+		middleware.RequestID,
+		middleware.URLFormat,
+		appmiddleware.LoggerMiddleware(s.logger),
+		middleware.Heartbeat("/ping"))
 
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	"github.com/keyboy21/url-shortner/internal/apiserver"
 	"github.com/keyboy21/url-shortner/internal/config"
@@ -17,6 +18,12 @@ func init() {
 
 func main() {
 	flag.Parse()
-	cfg := config.New(configPath)
-	apiserver.Start(cfg)
+	cfg, err := config.New(configPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := apiserver.Start(cfg); err != nil {
+		log.Fatal(err)
+	}
+
 }
