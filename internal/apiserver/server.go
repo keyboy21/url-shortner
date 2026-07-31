@@ -35,8 +35,8 @@ func Start(cfg *config.Config) error {
 		return err
 	}
 	defer server.logger.Sync()
-
 	server.logger.Infow("starting url-shortner", "config", cfg)
+	
 	httpServer := &http.Server{
 		Addr:              cfg.Address,
 		Handler:           server,

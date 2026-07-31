@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/keyboy21/url-shortner/internal/apperror"
+	"github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/model"
 	"github.com/keyboy21/url-shortner/internal/store"
 )

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/keyboy21/url-shortner/internal/apiserver/handler"
-	"github.com/keyboy21/url-shortner/internal/apperror"
+	"github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/service"
 	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/testutils"

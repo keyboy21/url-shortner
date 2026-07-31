@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/keyboy21/url-shortner/internal/apperror"
+	"github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/service"
 	"go.uber.org/zap"
 )

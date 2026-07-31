@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/keyboy21/url-shortner/internal/apperror"
+	"github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
