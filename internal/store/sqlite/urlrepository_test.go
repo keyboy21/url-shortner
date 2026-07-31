@@ -1,10 +1,11 @@
 package sqlite_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
-	"github.com/keyboy21/url-shortner/internal/store"
+	"github.com/keyboy21/url-shortner/internal/apperror"
 	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,9 +17,9 @@ func TestUrl_SaveUrl(t *testing.T) {
 	s := sqlite.New(db)
 	u := sqlite.CreateTestURL(t)
 
-	created, err := s.Url().SaveUrl(u)
-	assert.NoError(t, err)
-	assert.NotNil(t, created)
+	created, err := s.Url().SaveUrl(context.Background(), u)
+	require.NoError(t, err)
+	require.NotNil(t, created)
 
 	assert.Greater(t, created.Id, 0)
 	assert.Equal(t, u.Url, created.Url)
@@ -31,13 +32,13 @@ func TestUrl_FindById(t *testing.T) {
 	db := sqlite.SetupTestDB(t, dbPath)
 	s := sqlite.New(db)
 
-	created, err := s.Url().SaveUrl(sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	found, err := s.Url().FindById(created.Id)
-	assert.NoError(t, err)
-	assert.NotNil(t, found)
+	found, err := s.Url().FindById(context.Background(), created.Id)
+	require.NoError(t, err)
+	require.NotNil(t, found)
 
 	assert.Equal(t, created.Id, found.Id)
 	assert.Equal(t, created.Url, found.Url)
@@ -50,14 +51,14 @@ func TestUrl_FindByUrl(t *testing.T) {
 	db := sqlite.SetupTestDB(t, dbPath)
 	s := sqlite.New(db)
 
-	created, err := s.Url().SaveUrl(sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	found, err := s.Url().FindByUrl(created.Url)
+	found, err := s.Url().FindByUrl(context.Background(), created.Url)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, found)
+	require.NoError(t, err)
+	require.NotNil(t, found)
 
 	assert.Equal(t, created.Id, found.Id)
 	assert.Equal(t, created.Url, found.Url)
@@ -70,14 +71,14 @@ func TestUrl_FindByAlias(t *testing.T) {
 	db := sqlite.SetupTestDB(t, dbPath)
 	s := sqlite.New(db)
 
-	created, err := s.Url().SaveUrl(sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	found, err := s.Url().FindByAlias(created.Alias)
+	found, err := s.Url().FindByAlias(context.Background(), created.Alias)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, found)
+	require.NoError(t, err)
+	require.NotNil(t, found)
 
 	assert.Equal(t, created.Id, found.Id)
 	assert.Equal(t, created.Url, found.Url)
@@ -85,27 +86,42 @@ func TestUrl_FindByAlias(t *testing.T) {
 	assert.Equal(t, created.CreatedAt, found.CreatedAt)
 }
 
-func TestUrl_DeleteUrl(t *testing.T) {
+func TestUrl_DeleteByAlias(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
 	db := sqlite.SetupTestDB(t, dbPath)
 	s := sqlite.New(db)
 
-	created, err := s.Url().SaveUrl(sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	deleted, err := s.Url().DeleteUrl(created.Url)
+	deleted, err := s.Url().DeleteByAlias(context.Background(), created.Alias)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, deleted)
+	require.NoError(t, err)
+	require.NotNil(t, deleted)
 
 	assert.Equal(t, created.Id, deleted.Id)
 	assert.Equal(t, created.Url, deleted.Url)
 	assert.Equal(t, created.Alias, deleted.Alias)
 	assert.Equal(t, created.CreatedAt, deleted.CreatedAt)
 
-	found, err := s.Url().FindById(deleted.Id)
+	found, err := s.Url().FindById(context.Background(), deleted.Id)
 
 	assert.Nil(t, found)
-	require.ErrorIs(t, err, store.ErrUrlNotFound)
+	require.ErrorIs(t, err, apperror.ErrUrlNotFound)
+}
+
+func TestUrl_SaveUrl_DuplicateAlias(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
+	db := sqlite.SetupTestDB(t, dbPath)
+	s := sqlite.New(db)
+
+	first := sqlite.CreateTestURL(t)
+	_, err := s.Url().SaveUrl(context.Background(), first)
+	require.NoError(t, err)
+
+	second := sqlite.CreateTestURL(t)
+	second.Url = "https://go.dev"
+	_, err = s.Url().SaveUrl(context.Background(), second)
+	require.ErrorIs(t, err, apperror.ErrAliasAlreadyUsed)
 }

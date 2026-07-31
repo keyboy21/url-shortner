@@ -7,8 +7,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/keyboy21/url-shortner/internal/apiserver/handler"
 	appmiddleware "github.com/keyboy21/url-shortner/internal/apiserver/middleware"
 	"github.com/keyboy21/url-shortner/internal/config"
+	"github.com/keyboy21/url-shortner/internal/service"
 	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"go.uber.org/zap"
@@ -25,16 +27,30 @@ func Start(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 
 	store := sqlite.New(db)
+	defer store.Close()
+
 	server, err := newServer(cfg, store)
 	if err != nil {
 		return err
 	}
 	defer server.logger.Sync()
+
 	server.logger.Infow("starting url-shortner", "config", cfg)
-	return http.ListenAndServe(cfg.Address, server)
+	httpServer := &http.Server{
+		Addr:              cfg.Address,
+		Handler:           server,
+		ReadTimeout:       cfg.Timeout,
+		ReadHeaderTimeout: cfg.Timeout,
+		WriteTimeout:      cfg.Timeout,
+		IdleTimeout:       cfg.IdleTimeout,
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil {
+		return fmt.Errorf("serve HTTP: %w", err)
+	}
+	return nil
 }
 
 func newServer(cfg *config.Config, store store.Store) (*server, error) {
@@ -50,7 +66,7 @@ func newServer(cfg *config.Config, store store.Store) (*server, error) {
 	return s, nil
 }
 
-func (s server) configureRouter() {
+func (s *server) configureRouter() {
 	// Basic CORS
 	// for more ideas, see: https://developer.github.com/v3/#cross-origin-resource-sharing
 	s.router.Use(cors.Handler(cors.Options{
@@ -63,13 +79,19 @@ func (s server) configureRouter() {
 		AllowCredentials: false,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
-	s.router.Use(
-		middleware.Recoverer,
-		middleware.RequestID,
-		middleware.URLFormat,
-		appmiddleware.LoggerMiddleware(s.logger),
-		middleware.Heartbeat("/ping"))
+	s.router.Use(middleware.RequestID)
+	s.router.Use(appmiddleware.LoggerMiddleware(s.logger))
+	s.router.Use(middleware.Recoverer)
+	s.router.Use(middleware.URLFormat)
+	s.router.Use(middleware.Heartbeat("/ping"))
 
+	urlService := service.NewUrlService(s.store.Url())
+	urlHandler := handler.NewUrlHandler(urlService, s.logger)
+
+	s.router.Post("/api/v1/urls", urlHandler.Create)
+	s.router.Get("/api/v1/urls/{alias}", urlHandler.Get)
+	s.router.Delete("/api/v1/urls/{alias}", urlHandler.Delete)
+	s.router.Get("/{alias}", urlHandler.Redirect)
 }
 
 func (s *server) configureLogger(c *config.Config) error {

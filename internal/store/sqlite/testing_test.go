@@ -38,7 +38,7 @@ func CreateTestURL(t *testing.T) *model.Url {
 	t.Helper()
 
 	return &model.Url{
-		Url: "https://github.com",
+		Url:   "https://github.com",
 		Alias: "github",
 	}
 }

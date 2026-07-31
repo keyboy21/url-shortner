@@ -1,13 +1,17 @@
 package store
 
-import "github.com/keyboy21/url-shortner/internal/model"
+import (
+	"context"
+
+	"github.com/keyboy21/url-shortner/internal/model"
+)
 
 type UrlRepository interface {
-	FindById(int) (*model.Url, error)
-	FindByUrl(string) (*model.Url, error)
-	FindByAlias(string) (*model.Url, error)
-	SaveUrl(u *model.Url) (*model.Url, error)
-	DeleteUrl(url string) (*model.Url, error)
+	FindById(context.Context, int) (*model.Url, error)
+	FindByUrl(context.Context, string) (*model.Url, error)
+	FindByAlias(context.Context, string) (*model.Url, error)
+	SaveUrl(context.Context, *model.Url) (*model.Url, error)
+	DeleteByAlias(context.Context, string) (*model.Url, error)
 }
 
 type Store interface {
