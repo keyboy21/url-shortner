@@ -20,10 +20,10 @@ const generatedAliasAttempts = 5
 var aliasPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{3,64}$`)
 
 type UrlService struct {
-	repository store.UrlRepository
+	repository store.UrlInterface
 }
 
-func NewUrlService(repository store.UrlRepository) *UrlService {
+func NewUrlService(repository store.UrlInterface) *UrlService {
 	return &UrlService{repository: repository}
 }
 

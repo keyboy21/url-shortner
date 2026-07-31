@@ -10,7 +10,7 @@ import (
 	"github.com/keyboy21/url-shortner/internal/apiserver/handler"
 	"github.com/keyboy21/url-shortner/internal/apperror"
 	"github.com/keyboy21/url-shortner/internal/service"
-	"github.com/keyboy21/url-shortner/internal/store/sqlite"
+	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,7 @@ import (
 type testApp struct {
 	router  http.Handler
 	service *service.UrlService
-	store   *sqlite.Store
+	store   *store.Store
 }
 
 func TestUrlHandler_Create(t *testing.T) {
@@ -132,7 +132,7 @@ func TestUrlHandler_UnexpectedError(t *testing.T) {
 func newTestApp(t *testing.T) *testApp {
 	t.Helper()
 
-	store := sqlite.NewStore(testutils.NewSQLiteDB(t))
+	store := store.New(testutils.NewSQLiteDB(t))
 	urlService := service.NewUrlService(store.Url())
 	urlHandler := handler.NewUrlHandler(urlService, zap.NewNop().Sugar())
 

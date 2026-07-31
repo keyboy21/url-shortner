@@ -12,26 +12,25 @@ import (
 	"github.com/keyboy21/url-shortner/internal/config"
 	"github.com/keyboy21/url-shortner/internal/service"
 	"github.com/keyboy21/url-shortner/internal/store"
-	"github.com/keyboy21/url-shortner/internal/store/sqlite"
 	"go.uber.org/zap"
 )
 
 type server struct {
 	router *chi.Mux
-	store  store.Store
+	store  store.Interface
 	logger *zap.SugaredLogger
 }
 
 func Start(cfg *config.Config) error {
-	db, err := sqlite.ConnectSqlite(cfg.StoragePath)
+	db, err := store.ConnectSqlite(cfg.StoragePath)
 	if err != nil {
 		return err
 	}
 
-	store := sqlite.NewStore(db)
-	defer store.Close()
+	appStore := store.New(db)
+	defer appStore.Close()
 
-	server, err := newServer(cfg, store)
+	server, err := newServer(cfg, appStore)
 	if err != nil {
 		return err
 	}
@@ -53,7 +52,7 @@ func Start(cfg *config.Config) error {
 	return nil
 }
 
-func newServer(cfg *config.Config, store store.Store) (*server, error) {
+func newServer(cfg *config.Config, store store.Interface) (*server, error) {
 	s := &server{
 		logger: zap.S(),
 		router: chi.NewRouter(),

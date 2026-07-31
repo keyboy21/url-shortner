@@ -6,7 +6,7 @@ import (
 	"github.com/keyboy21/url-shortner/internal/model"
 )
 
-type UrlRepository interface {
+type UrlInterface interface {
 	FindById(context.Context, int) (*model.Url, error)
 	FindByUrl(context.Context, string) (*model.Url, error)
 	FindByAlias(context.Context, string) (*model.Url, error)
@@ -14,7 +14,7 @@ type UrlRepository interface {
 	DeleteByAlias(context.Context, string) (*model.Url, error)
 }
 
-type Store interface {
-	Url() UrlRepository
+type Interface interface {
+	Url() UrlInterface
 	Close() error
 }

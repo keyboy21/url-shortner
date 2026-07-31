@@ -6,7 +6,7 @@ import (
 
 	"github.com/keyboy21/url-shortner/internal/apperror"
 	"github.com/keyboy21/url-shortner/internal/service"
-	"github.com/keyboy21/url-shortner/internal/store/sqlite"
+	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,6 +80,6 @@ func TestUrlService_DeleteByAlias(t *testing.T) {
 func newTestService(t *testing.T) *service.UrlService {
 	t.Helper()
 
-	store := sqlite.NewStore(testutils.NewSQLiteDB(t))
+	store := store.New(testutils.NewSQLiteDB(t))
 	return service.NewUrlService(store.Url())
 }
