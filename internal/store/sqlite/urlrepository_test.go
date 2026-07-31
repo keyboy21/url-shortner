@@ -2,20 +2,19 @@ package sqlite_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/keyboy21/url-shortner/internal/apperror"
 	"github.com/keyboy21/url-shortner/internal/store/sqlite"
+	"github.com/keyboy21/url-shortner/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestUrl_SaveUrl(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
-	u := sqlite.CreateTestURL(t)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
+	u := testutils.CreateTestURL()
 
 	created, err := s.Url().SaveUrl(context.Background(), u)
 	require.NoError(t, err)
@@ -28,11 +27,10 @@ func TestUrl_SaveUrl(t *testing.T) {
 }
 
 func TestUrl_FindById(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
 
-	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), testutils.CreateTestURL())
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
@@ -47,11 +45,10 @@ func TestUrl_FindById(t *testing.T) {
 }
 
 func TestUrl_FindByUrl(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
 
-	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), testutils.CreateTestURL())
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
@@ -67,11 +64,10 @@ func TestUrl_FindByUrl(t *testing.T) {
 }
 
 func TestUrl_FindByAlias(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
 
-	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), testutils.CreateTestURL())
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
@@ -87,11 +83,10 @@ func TestUrl_FindByAlias(t *testing.T) {
 }
 
 func TestUrl_DeleteByAlias(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
 
-	created, err := s.Url().SaveUrl(context.Background(), sqlite.CreateTestURL(t))
+	created, err := s.Url().SaveUrl(context.Background(), testutils.CreateTestURL())
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
@@ -112,15 +107,14 @@ func TestUrl_DeleteByAlias(t *testing.T) {
 }
 
 func TestUrl_SaveUrl_DuplicateAlias(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "test.sqlite")
-	db := sqlite.SetupTestDB(t, dbPath)
-	s := sqlite.New(db)
+	db := testutils.NewSQLiteDB(t)
+	s := sqlite.NewStore(db)
 
-	first := sqlite.CreateTestURL(t)
+	first := testutils.CreateTestURL()
 	_, err := s.Url().SaveUrl(context.Background(), first)
 	require.NoError(t, err)
 
-	second := sqlite.CreateTestURL(t)
+	second := testutils.CreateTestURL()
 	second.Url = "https://go.dev"
 	_, err = s.Url().SaveUrl(context.Background(), second)
 	require.ErrorIs(t, err, apperror.ErrAliasAlreadyUsed)

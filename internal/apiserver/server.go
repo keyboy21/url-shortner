@@ -28,7 +28,7 @@ func Start(cfg *config.Config) error {
 		return err
 	}
 
-	store := sqlite.New(db)
+	store := sqlite.NewStore(db)
 	defer store.Close()
 
 	server, err := newServer(cfg, store)
@@ -87,11 +87,7 @@ func (s *server) configureRouter() {
 
 	urlService := service.NewUrlService(s.store.Url())
 	urlHandler := handler.NewUrlHandler(urlService, s.logger)
-
-	s.router.Post("/api/v1/urls", urlHandler.Create)
-	s.router.Get("/api/v1/urls/{alias}", urlHandler.Get)
-	s.router.Delete("/api/v1/urls/{alias}", urlHandler.Delete)
-	s.router.Get("/{alias}", urlHandler.Redirect)
+	s.router.Mount("/", urlHandler.Routes())
 }
 
 func (s *server) configureLogger(c *config.Config) error {

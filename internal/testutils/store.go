@@ -1,22 +1,24 @@
-package sqlite
+package testutils
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keyboy21/url-shortner/internal/model"
 )
 
-func SetupTestDB(t *testing.T, databaseUrl string) *sqlx.DB {
+func NewSQLiteDB(t testing.TB) *sqlx.DB {
 	t.Helper()
 
-	db, err := sqlx.Open("sqlite", databaseUrl)
+	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "test.sqlite"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("open test database: %v", err)
 	}
+	t.Cleanup(func() { _ = db.Close() })
 
 	if err := db.Ping(); err != nil {
-		t.Fatal(err)
+		t.Fatalf("ping test database: %v", err)
 	}
 
 	_, err = db.Exec(`CREATE TABLE urls (
@@ -24,19 +26,15 @@ func SetupTestDB(t *testing.T, databaseUrl string) *sqlx.DB {
 		url TEXT NOT NULL UNIQUE,
 		alias TEXT NOT NULL UNIQUE,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);`)
-
+	)`)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create test schema: %v", err)
 	}
 
-	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
 
-func CreateTestURL(t *testing.T) *model.Url {
-	t.Helper()
-
+func CreateTestURL() *model.Url {
 	return &model.Url{
 		Url:   "https://github.com",
 		Alias: "github",

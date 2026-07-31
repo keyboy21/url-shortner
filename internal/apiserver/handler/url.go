@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,20 +9,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/keyboy21/url-shortner/internal/apperror"
-	"github.com/keyboy21/url-shortner/internal/model"
+	"github.com/keyboy21/url-shortner/internal/service"
 	"go.uber.org/zap"
 )
 
-const maxRequestBodySize = 1 << 20
-
-type UrlService interface {
-	Create(context.Context, string, string) (*model.Url, error)
-	FindByAlias(context.Context, string) (*model.Url, error)
-	DeleteByAlias(context.Context, string) error
-}
+const (
+	maxRequestBodySize = 1 << 20
+	urlCollectionPath  = "/api/v1/urls"
+)
 
 type UrlHandler struct {
-	service UrlService
+	service *service.UrlService
 	logger  *zap.SugaredLogger
 }
 
@@ -32,11 +28,20 @@ type createUrlRequest struct {
 	Alias string `json:"alias,omitempty"`
 }
 
-func NewUrlHandler(service UrlService, logger *zap.SugaredLogger) *UrlHandler {
+func NewUrlHandler(service *service.UrlService, logger *zap.SugaredLogger) *UrlHandler {
 	return &UrlHandler{
 		service: service,
 		logger:  logger,
 	}
+}
+
+func (h *UrlHandler) Routes() http.Handler {
+	router := chi.NewRouter()
+	router.Post(urlCollectionPath, h.Create)
+	router.Get(urlCollectionPath+"/{alias}", h.Get)
+	router.Delete(urlCollectionPath+"/{alias}", h.Delete)
+	router.Get("/{alias}", h.Redirect)
+	return router
 }
 
 func (h *UrlHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +62,7 @@ func (h *UrlHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", "/api/v1/urls/"+created.Alias)
+	w.Header().Set("Location", urlCollectionPath+"/"+created.Alias)
 	writeJson(w, http.StatusCreated, created)
 }
 

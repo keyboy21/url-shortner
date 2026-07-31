@@ -27,7 +27,7 @@ func ConnectSqlite(dbPath string) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func New(db *sqlx.DB) *Store {
+func NewStore(db *sqlx.DB) *Store {
 	return &Store{
 		db: db,
 		urlRepository: &UrlRepository{

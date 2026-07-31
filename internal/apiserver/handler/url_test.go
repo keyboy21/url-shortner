@@ -2,59 +2,29 @@ package handler_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/keyboy21/url-shortner/internal/apiserver/handler"
 	"github.com/keyboy21/url-shortner/internal/apperror"
-	"github.com/keyboy21/url-shortner/internal/model"
+	"github.com/keyboy21/url-shortner/internal/service"
+	"github.com/keyboy21/url-shortner/internal/store/sqlite"
+	"github.com/keyboy21/url-shortner/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-type fakeUrlService struct {
-	created      *model.Url
-	createErr    error
-	found        *model.Url
-	findErr      error
-	deleteErr    error
-	createdUrl   string
-	createdAlias string
-	deletedAlias string
-}
-
-// boilerplates for handler UrlService
-func (f *fakeUrlService) Create(_ context.Context, url, alias string) (*model.Url, error) {
-	f.createdUrl = url
-	f.createdAlias = alias
-	return f.created, f.createErr
-}
-
-func (f *fakeUrlService) FindByAlias(context.Context, string) (*model.Url, error) {
-	return f.found, f.findErr
-}
-
-func (f *fakeUrlService) DeleteByAlias(_ context.Context, alias string) error {
-	f.deletedAlias = alias
-	return f.deleteErr
+type testApp struct {
+	router  http.Handler
+	service *service.UrlService
+	store   *sqlite.Store
 }
 
 func TestUrlHandler_Create(t *testing.T) {
-	urlService := &fakeUrlService{
-		created: &model.Url{
-			Id:        1,
-			Url:       "https://go.dev",
-			Alias:     "golang",
-			CreatedAt: time.Now().UTC(),
-		},
-	}
-	router := testRouter(urlService)
+	app := newTestApp(t)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/urls",
@@ -62,17 +32,19 @@ func TestUrlHandler_Create(t *testing.T) {
 	)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	require.Equal(t, http.StatusCreated, response.Code)
 	assert.Equal(t, "/api/v1/urls/golang", response.Header().Get("Location"))
 	assert.Contains(t, response.Body.String(), `"alias":"golang"`)
-	assert.Equal(t, "https://go.dev", urlService.createdUrl)
-	assert.Equal(t, "golang", urlService.createdAlias)
+
+	created, err := app.service.FindByAlias(context.Background(), "golang")
+	require.NoError(t, err)
+	assert.Equal(t, "https://go.dev", created.Url)
 }
 
 func TestUrlHandler_Create_InvalidJson(t *testing.T) {
-	router := testRouter(&fakeUrlService{})
+	app := newTestApp(t)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/urls",
@@ -80,13 +52,16 @@ func TestUrlHandler_Create_InvalidJson(t *testing.T) {
 	)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 }
 
 func TestUrlHandler_Create_DuplicateAlias(t *testing.T) {
-	router := testRouter(&fakeUrlService{createErr: apperror.ErrAliasAlreadyUsed})
+	app := newTestApp(t)
+	_, err := app.service.Create(context.Background(), "https://example.com", "golang")
+	require.NoError(t, err)
+
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/urls",
@@ -94,67 +69,76 @@ func TestUrlHandler_Create_DuplicateAlias(t *testing.T) {
 	)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusConflict, response.Code)
 }
 
 func TestUrlHandler_Get_NotFound(t *testing.T) {
-	router := testRouter(&fakeUrlService{findErr: apperror.ErrUrlNotFound})
+	app := newTestApp(t)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/urls/missing", nil)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
 func TestUrlHandler_Delete(t *testing.T) {
-	urlService := &fakeUrlService{}
-	router := testRouter(urlService)
+	app := newTestApp(t)
+	_, err := app.service.Create(context.Background(), "https://go.dev", "golang")
+	require.NoError(t, err)
+
 	request := httptest.NewRequest(http.MethodDelete, "/api/v1/urls/golang", nil)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusNoContent, response.Code)
 	assert.Empty(t, response.Body.String())
-	assert.Equal(t, "golang", urlService.deletedAlias)
+
+	found, err := app.service.FindByAlias(context.Background(), "golang")
+	assert.Nil(t, found)
+	require.ErrorIs(t, err, apperror.ErrUrlNotFound)
 }
 
 func TestUrlHandler_Redirect(t *testing.T) {
-	router := testRouter(&fakeUrlService{
-		found: &model.Url{
-			Url:   "https://go.dev",
-			Alias: "golang",
-		},
-	})
+	app := newTestApp(t)
+	_, err := app.service.Create(context.Background(), "https://go.dev", "golang")
+	require.NoError(t, err)
+
 	request := httptest.NewRequest(http.MethodGet, "/golang", nil)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusFound, response.Code)
 	assert.Equal(t, "https://go.dev", response.Header().Get("Location"))
 }
 
 func TestUrlHandler_UnexpectedError(t *testing.T) {
-	router := testRouter(&fakeUrlService{findErr: errors.New("database unavailable")})
+	app := newTestApp(t)
+	require.NoError(t, app.store.Close())
+
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/urls/golang", nil)
 	response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+	app.router.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusInternalServerError, response.Code)
-	assert.NotContains(t, response.Body.String(), "database unavailable")
+	assert.NotContains(t, response.Body.String(), "database is closed")
 }
 
-func testRouter(urlService handler.UrlService) http.Handler {
+func newTestApp(t *testing.T) *testApp {
+	t.Helper()
+
+	store := sqlite.NewStore(testutils.NewSQLiteDB(t))
+	urlService := service.NewUrlService(store.Url())
 	urlHandler := handler.NewUrlHandler(urlService, zap.NewNop().Sugar())
-	router := chi.NewRouter()
-	router.Post("/api/v1/urls", urlHandler.Create)
-	router.Get("/api/v1/urls/{alias}", urlHandler.Get)
-	router.Delete("/api/v1/urls/{alias}", urlHandler.Delete)
-	router.Get("/{alias}", urlHandler.Redirect)
-	return router
+
+	return &testApp{
+		router:  urlHandler.Routes(),
+		service: urlService,
+		store:   store,
+	}
 }
