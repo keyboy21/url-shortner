@@ -86,7 +86,7 @@ func (s *server) configureRouter() {
 
 	urlService := service.NewUrlService(s.store.Url())
 	urlHandler := handler.NewUrlHandler(urlService, s.logger)
-	s.router.Mount("/", urlHandler.Routes())
+	s.router.Mount("/urls", urlHandler.Routes())
 }
 
 func (s *server) configureLogger(c *config.Config) error {

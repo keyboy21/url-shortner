@@ -1,14 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/keyboy21/url-shortner/internal/lib"
+	"github.com/go-chi/render"
+	apperror "github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/service"
 	"go.uber.org/zap"
 )
@@ -45,25 +44,26 @@ func (h *UrlHandler) Routes() http.Handler {
 }
 
 func (h *UrlHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var request createUrlRequest
-	if err := decodeJson(w, r, &request); err != nil {
+	var req createUrlRequest
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+	if err := render.DecodeJSON(r.Body, &req); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			writeError(w, http.StatusRequestEntityTooLarge, "request body is too large")
+			ErrorResponse(w, r, http.StatusRequestEntityTooLarge, "request body is too large")
 			return
 		}
-		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		ErrorResponse(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
-	created, err := h.service.Create(r.Context(), request.Url, request.Alias)
+	created, err := h.service.Create(r.Context(), req.Url, req.Alias)
 	if err != nil {
 		h.writeServiceError(w, r, err)
 		return
 	}
 
 	w.Header().Set("Location", urlCollectionPath+"/"+created.Alias)
-	writeJson(w, http.StatusCreated, created)
+	SuccessResponse(w, r, http.StatusCreated, created)
 }
 
 func (h *UrlHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +73,7 @@ func (h *UrlHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJson(w, http.StatusOK, found)
+	SuccessResponse(w, r, http.StatusOK, found)
 }
 
 func (h *UrlHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (h *UrlHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	SuccessResponse(w, r, http.StatusNoContent, nil)
 }
 
 func (h *UrlHandler) Redirect(w http.ResponseWriter, r *http.Request) {
@@ -102,40 +102,21 @@ func (h *UrlHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 func (h *UrlHandler) writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, apperror.ErrInvalidUrl):
-		writeError(w, http.StatusUnprocessableEntity, "URL must be an absolute http or https URL")
+		ErrorResponse(w, r, http.StatusUnprocessableEntity, "URL must be an absolute http or https URL")
 	case errors.Is(err, apperror.ErrInvalidAlias):
-		writeError(w, http.StatusUnprocessableEntity, "alias must contain 3 to 64 letters, numbers, hyphens, or underscores")
+		ErrorResponse(w, r, http.StatusUnprocessableEntity, "alias must contain 3 to 64 letters, numbers, hyphens, or underscores")
 	case errors.Is(err, apperror.ErrUrlNotFound):
-		writeError(w, http.StatusNotFound, "URL not found")
+		ErrorResponse(w, r, http.StatusNotFound, "URL not found")
 	case errors.Is(err, apperror.ErrUrlAlreadyExists):
-		writeError(w, http.StatusConflict, "URL already exists")
+		ErrorResponse(w, r, http.StatusConflict, "URL already exists")
 	case errors.Is(err, apperror.ErrAliasAlreadyUsed):
-		writeError(w, http.StatusConflict, "alias already used")
+		ErrorResponse(w, r, http.StatusConflict, "alias already used")
 	default:
 		h.logger.Errorw(
 			"request failed",
 			"error", err,
 			"request_id", chimiddleware.GetReqID(r.Context()),
 		)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		ErrorResponse(w, r, http.StatusInternalServerError, "internal server error")
 	}
-}
-
-func decodeJson(w http.ResponseWriter, r *http.Request, destination any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("request body must contain one JSON object")
-		}
-		return err
-	}
-
-	return nil
 }

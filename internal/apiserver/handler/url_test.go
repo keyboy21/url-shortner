@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,7 +55,33 @@ func TestUrlHandler_Create_InvalidJson(t *testing.T) {
 
 	app.router.ServeHTTP(response, request)
 
-	assert.Equal(t, http.StatusBadRequest, response.Code)
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+
+	var body handler.Response
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.Equal(t, http.StatusBadRequest, body.Status)
+	assert.Equal(t, "invalid JSON body", body.Error)
+	assert.Nil(t, body.Data)
+}
+
+func TestUrlHandler_Create_BodyTooLarge(t *testing.T) {
+	app := newTestApp(t)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/urls",
+		strings.NewReader(`{"url":"`+strings.Repeat("a", 1<<20)+`"}`),
+	)
+	response := httptest.NewRecorder()
+
+	app.router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusRequestEntityTooLarge, response.Code)
+
+	var body handler.Response
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	assert.Equal(t, http.StatusRequestEntityTooLarge, body.Status)
+	assert.Equal(t, "request body is too large", body.Error)
 }
 
 func TestUrlHandler_Create_DuplicateAlias(t *testing.T) {
