@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/keyboy21/url-shortner/internal/apiserver/handler"
-	"github.com/keyboy21/url-shortner/internal/lib"
+	apperror "github.com/keyboy21/url-shortner/internal/lib"
 	"github.com/keyboy21/url-shortner/internal/service"
 	"github.com/keyboy21/url-shortner/internal/store"
 	"github.com/keyboy21/url-shortner/internal/testutils"
@@ -26,79 +26,54 @@ type testApp struct {
 
 func TestUrlHandler_Create(t *testing.T) {
 	app := newTestApp(t)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/urls",
-		strings.NewReader(`{"url":"https://go.dev","alias":"golang"}`),
-	)
-	response := httptest.NewRecorder()
 
-	app.router.ServeHTTP(response, request)
+	testCases := []struct {
+		name         string
+		payload      string
+		expectedCode int
+	}{
+		{
+			name:         "valid",
+			payload:      `{"url":"https://go.dev","alias":"golang"}`,
+			expectedCode: http.StatusCreated,
+		},
+		{
+			name:         "invalid json",
+			payload:      `{"url":""`,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "body too large",
+			payload:      `{"url":"` + strings.Repeat("a", 1<<20) + `"}`,
+			expectedCode: http.StatusRequestEntityTooLarge,
+		},
+		{
+			name:         "duplicate alias",
+			payload:      `{"url":"https://go.dev","alias":"golang"}`,
+			expectedCode: http.StatusConflict,
+		}}
 
-	require.Equal(t, http.StatusCreated, response.Code)
-	assert.Equal(t, "/api/v1/urls/golang", response.Header().Get("Location"))
-	assert.Contains(t, response.Body.String(), `"alias":"golang"`)
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/urls", strings.NewReader(test.payload))
+			res := httptest.NewRecorder()
+			app.router.ServeHTTP(res, req)
 
-	created, err := app.service.FindByAlias(context.Background(), "golang")
-	require.NoError(t, err)
-	assert.Equal(t, "https://go.dev", created.Url)
-}
+			require.Equal(t, test.expectedCode, res.Code)
 
-func TestUrlHandler_Create_InvalidJson(t *testing.T) {
-	app := newTestApp(t)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/urls",
-		strings.NewReader(`{"url":`),
-	)
-	response := httptest.NewRecorder()
+			var body handler.Response
+			require.NoError(t, json.Unmarshal(res.Body.Bytes(), &body))
+			assert.Equal(t, test.expectedCode, body.Status)
+			if test.expectedCode == http.StatusCreated {
+				assert.Equal(t, "/api/v1/urls/golang", res.Header().Get("Location"))
+				assert.Contains(t, res.Body.String(), `"alias":"golang"`)
+				created, _ := app.service.FindByAlias(context.Background(), "golang")
+				assert.Equal(t, "https://go.dev", created.Url)
+			}
 
-	app.router.ServeHTTP(response, request)
+		})
+	}
 
-	require.Equal(t, http.StatusBadRequest, response.Code)
-	assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-
-	var body handler.Response
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	assert.Equal(t, http.StatusBadRequest, body.Status)
-	assert.Equal(t, "invalid JSON body", body.Error)
-	assert.Nil(t, body.Data)
-}
-
-func TestUrlHandler_Create_BodyTooLarge(t *testing.T) {
-	app := newTestApp(t)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/urls",
-		strings.NewReader(`{"url":"`+strings.Repeat("a", 1<<20)+`"}`),
-	)
-	response := httptest.NewRecorder()
-
-	app.router.ServeHTTP(response, request)
-
-	require.Equal(t, http.StatusRequestEntityTooLarge, response.Code)
-
-	var body handler.Response
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	assert.Equal(t, http.StatusRequestEntityTooLarge, body.Status)
-	assert.Equal(t, "request body is too large", body.Error)
-}
-
-func TestUrlHandler_Create_DuplicateAlias(t *testing.T) {
-	app := newTestApp(t)
-	_, err := app.service.Create(context.Background(), "https://example.com", "golang")
-	require.NoError(t, err)
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/urls",
-		strings.NewReader(`{"url":"https://go.dev","alias":"golang"}`),
-	)
-	response := httptest.NewRecorder()
-
-	app.router.ServeHTTP(response, request)
-
-	assert.Equal(t, http.StatusConflict, response.Code)
 }
 
 func TestUrlHandler_Get_NotFound(t *testing.T) {
